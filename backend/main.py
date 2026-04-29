@@ -146,7 +146,7 @@ LAKE_PROFILES = {
         "name": "Varthur Lake",
         "city": "Bengaluru, Karnataka",
         "area_km2": 2.18,
-        "coordinates": {"lat": 12.940, "lon": 77.710},
+        "coordinates": {"lat": 12.940699, "lon": 77.746596},
         "status_color": "#ff3b3b",
         "alert_level": "CRITICAL",
         "pollution_summary": {"clean_percent": 5, "moderate_percent": 22, "severe_percent": 73, "total_pixels_analyzed": 64},
@@ -989,17 +989,28 @@ def gee_status():
 
 
 @app.get("/gee/tiles", tags=["GEE"])
-def gee_tiles():
+def gee_tiles(lake: str = "bellandur"):
     """
-    Generate live map tile URLs from Google Earth Engine.
+    Generate live map tile URLs from Google Earth Engine for any lake.
+    Supports: bellandur, varthur, dal, hussain_sagar
     Uses exact 3-period timeline logic provided by user.
     """
     if GEE_STATUS != "Connected":
         return {"error": "Google Earth Engine not connected. Check server logs."}
         
     try:
-        # Define Bellandur Lake ROI
-        roi = ee.Geometry.Rectangle([77.620, 12.900, 77.705, 12.970])
+        # Define ROI for each lake based on coordinates + buffer
+        lake_rois = {
+            "bellandur": ee.Geometry.Rectangle([77.620, 12.900, 77.705, 12.970]),
+            "varthur": ee.Geometry.Rectangle([77.716, 12.920, 77.777, 12.961]),  # Updated: 12.940699°N, 77.746596°E
+            "dal": ee.Geometry.Rectangle([74.810, 34.070, 74.880, 34.120]),
+            "hussain_sagar": ee.Geometry.Rectangle([78.450, 17.410, 78.500, 17.450]),
+        }
+        
+        if lake not in lake_rois:
+            return {"error": f"Lake '{lake}' not supported. Choose: bellandur, varthur, dal, hussain_sagar"}
+        
+        roi = lake_rois[lake]
         
         def get_image(start, end):
             # Use COPERNICUS/S2 (Level-1C) instead of S2_SR for complete coverage
@@ -1013,9 +1024,11 @@ def gee_tiles():
             
         def get_pollution(img):
             # Use JRC Global Surface Water to perfectly mask the lake boundaries
-            # instead of dynamic NDWI which fails on the weed-choked western half
+            # Adjust occurrence threshold based on lake type
             jrc = ee.Image("JRC/GSW1_4/GlobalSurfaceWater")
-            mask = jrc.select('occurrence').gt(5).clip(roi)
+            # Dal Lake and Hussain Sagar need lower threshold due to seasonal variation
+            occurrence_threshold = 5 if lake in ["bellandur", "varthur"] else 3
+            mask = jrc.select('occurrence').gt(occurrence_threshold).clip(roi)
             
             ndvi = img.normalizedDifference(['B8','B4'])
             ndti = img.normalizedDifference(['B4','B3'])
@@ -1048,6 +1061,7 @@ def gee_tiles():
 
         return {
             "status": "success",
+            "lake": lake,
             "baseline": get_pollution(baseline).visualize(**poll_viz).getMapId()['tile_fetcher'].url_format,
             "warning": get_pollution(warning).visualize(**poll_viz).getMapId()['tile_fetcher'].url_format,
             "critical": get_pollution(critical).visualize(**poll_viz).getMapId()['tile_fetcher'].url_format,
@@ -1056,7 +1070,7 @@ def gee_tiles():
             "live_2026_rgb": live_2026.visualize(**rgb_viz).getMapId()['tile_fetcher'].url_format,
         }
     except Exception as e:
-        return {"error": f"Failed to generate GEE tiles: {str(e)}"}
+        return {"error": f"Failed to generate GEE tiles for {lake}: {str(e)}"}
 
 @app.post("/predict-sensor", tags=["Prediction"])
 def predict_sensor(data: SensorInput):

@@ -1,6 +1,15 @@
-import { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Circle, Popup, Rectangle, Tooltip } from "react-leaflet";
+import { useState, useEffect, useRef } from "react";
+import { MapContainer, TileLayer, Circle, Popup, Rectangle, Tooltip, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+
+// Component to update map center when coordinates change
+function MapUpdater({ center, zoom }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+}
 
 // Pollution zones derived from rule-based GEE pixel analysis
 const ZONES = [
@@ -39,35 +48,46 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
   const [activeLayer, setActiveLayer] = useState("live_2026"); // default to live 2026
   const [loadingGee, setLoadingGee] = useState(true);
 
+  // Fetch GEE tiles whenever lake changes
   useEffect(() => {
-    fetch("http://localhost:8000/gee/tiles")
+    setLoadingGee(true);
+    fetch(`http://localhost:8000/gee/tiles?lake=${lakeId}`)
       .then(res => res.json())
       .then(data => {
+        console.log(`GEE tiles response for ${lakeId}:`, data);
         if (data.status === "success") {
           setGeeTiles(data);
           setActiveLayer("live_2026"); // Always default to live 2026
         } else {
+          console.error(`GEE tiles failed for ${lakeId}:`, data.error || data);
+          setGeeTiles(null);
           setActiveLayer("static");
         }
       })
       .catch(err => {
-        console.error("GEE error:", err);
+        console.error(`GEE error for ${lakeId}:`, err);
+        setGeeTiles(null);
         setActiveLayer("static");
       })
       .finally(() => setLoadingGee(false));
-  }, []);
+  }, [lakeId]); // Re-fetch when lake changes
 
-  // Force static layer if not Bellandur since GEE tiles are Bellandur-specific
+  // Show live 2026 by default when GEE tiles are available
   useEffect(() => {
-    if (lakeId !== "bellandur") {
-      setActiveLayer("static");
-    } else if (geeTiles) {
+    if (geeTiles) {
       setActiveLayer("live_2026");
+    } else {
+      setActiveLayer("static");
     }
-  }, [lakeId, geeTiles]);
+  }, [geeTiles]);
 
   const getCurrentTileUrl = () => {
     if (activeLayer === "static" || !geeTiles) {
+      return "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+    }
+    // Fallback to static if the requested layer doesn't exist
+    if (!geeTiles[activeLayer]) {
+      console.warn(`Layer ${activeLayer} not found in GEE tiles, falling back to static`);
       return "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
     }
     return geeTiles[activeLayer];
@@ -84,7 +104,7 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
         <span className="section-title" style={{ margin: 0 }}>
           🗺️ Live Pollution Map — {lakeName}
         </span>
-        {lakeId === "bellandur" && (activeLayer === "live_2026" || activeLayer === "live_2026_rgb") && (
+        {(activeLayer === "live_2026" || activeLayer === "live_2026_rgb") && geeTiles && (
           <span style={{
             display: "inline-flex", alignItems: "center", gap: "4px",
             padding: "2px 8px", borderRadius: "10px", fontSize: "10px", fontWeight: 700,
@@ -102,14 +122,14 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
       </div>
 
       {/* ── Row 2: Buttons — single scrollable row, story order ── */}
-      {lakeId === "bellandur" && (
+      {geeTiles && (
         <div style={{
           display: "flex", alignItems: "center", gap: "5px",
           marginBottom: "14px", overflowX: "auto", paddingBottom: "2px",
         }}>
           {loadingGee ? (
             <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Connecting to GEE...</span>
-          ) : geeTiles ? (
+          ) : (
             <>
               {/* Pollution index layers — chronological story */}
               {[
@@ -153,8 +173,6 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
                 >{btn.label}</button>
               ))}
             </>
-          ) : (
-            <span style={{ fontSize: "12px", color: "#ff3b3b" }}>GEE Disconnected — showing static zones</span>
           )}
         </div>
       )}
@@ -166,23 +184,24 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
         style={{ height: "340px", borderRadius: "10px" }}
         zoomControl={true}
       >
-        {/* If using GEE, we still want a dark base map underneath the transparent overlays */}
-        {!isRgbLayer && activeLayer !== "static" && (
-            <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-                maxZoom={19}
-            />
-        )}
-
-        {/* Dynamic Tile Layer (Base or GEE) */}
+        <MapUpdater center={[coordinates.lat, coordinates.lon]} zoom={14} />
+        {/* Always show base map */}
         <TileLayer
-          key={activeLayer}
-          url={getCurrentTileUrl()}
-          attribution={activeLayer === "static" ? '&copy; <a href="https://carto.com/">CARTO</a>' : '&copy; Google Earth Engine'}
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           maxZoom={19}
-          opacity={isRgbLayer ? 1 : (activeLayer === "static" ? 1 : 0.85)}
         />
+
+        {/* GEE overlay layer (if available and not RGB/static) */}
+        {geeTiles && activeLayer !== "static" && geeTiles[activeLayer] && (
+          <TileLayer
+            key={activeLayer}
+            url={geeTiles[activeLayer]}
+            attribution='&copy; Google Earth Engine'
+            maxZoom={19}
+            opacity={isRgbLayer ? 1 : 0.85}
+          />
+        )}
 
         {/* Pollution classification zones (Static Mode Only - Bellandur specific) */}
         {activeLayer === "static" && lakeId === "bellandur" && ZONES.map((zone) => (
