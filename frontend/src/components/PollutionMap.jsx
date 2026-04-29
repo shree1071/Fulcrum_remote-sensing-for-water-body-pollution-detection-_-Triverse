@@ -78,75 +78,86 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
 
   return (
     <div className="glass-card" style={{ padding: "20px" }}>
-      <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+
+      {/* ── Row 1: Title + LIVE badge ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+        <span className="section-title" style={{ margin: 0 }}>
           🗺️ Live Pollution Map — {lakeName}
-          {lakeId === "bellandur" && activeLayer === "live_2026" && (
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: "4px",
-              padding: "2px 8px", borderRadius: "10px", fontSize: "10px", fontWeight: 700,
-              background: "rgba(0,217,163,0.15)", border: "1px solid rgba(0,217,163,0.4)",
-              color: "#00d9a3",
-            }}>
-              <span style={{
-                width: "6px", height: "6px", borderRadius: "50%", background: "#00d9a3",
-                boxShadow: "0 0 6px #00d9a3", animation: "pulse-ring 1.4s ease-out infinite",
-                display: "inline-block",
-              }} />
-              LIVE · 2026
-            </span>
-          )}
         </span>
-        
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-          {lakeId === "bellandur" && (
-            loadingGee ? (
-              <span style={{ fontSize: "12px", color: "var(--text-muted)", alignSelf: "center" }}>Connecting to GEE...</span>
-            ) : geeTiles ? (
-              <>
-              <button
-                className="predict-btn"
-                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "live_2026" ? 1 : 0.5, marginTop: 0,
-                  ...(activeLayer === "live_2026" ? { border: "1px solid rgba(0,217,163,0.6)", color: "#00d9a3" } : {}) }}
-                onClick={() => setActiveLayer("live_2026")}
-              >🟢 Live (Apr 2026)</button>
-              <button
-                className="predict-btn"
-                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "live_2026_rgb" ? 1 : 0.5, marginTop: 0 }}
-                onClick={() => setActiveLayer("live_2026_rgb")}
-              >📷 RGB (2026)</button>
-              <button 
-                className="predict-btn" 
-                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "critical" ? 1 : 0.5, marginTop: 0 }}
-                onClick={() => setActiveLayer("critical")}
-              >🔴 2018 Fire</button>
-              <button 
-                className="predict-btn" 
-                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "baseline" ? 1 : 0.5, marginTop: 0 }}
-                onClick={() => setActiveLayer("baseline")}
-              >✅ 2016 Baseline</button>
-              <button 
-                className="predict-btn" 
-                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "warning" ? 1 : 0.5, marginTop: 0 }}
-                onClick={() => setActiveLayer("warning")}
-              >⚠️ 2017</button>
-              <button 
-                className="predict-btn" 
-                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "critical_rgb" ? 1 : 0.5, marginTop: 0 }}
-                onClick={() => setActiveLayer("critical_rgb")}
-              >📷 RGB 2018</button>
-                <button 
-                  className="predict-btn" 
-                  style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "static" ? 1 : 0.5, marginTop: 0 }}
-                  onClick={() => setActiveLayer("static")}
-                >🗺️ Zones</button>
-              </>
-            ) : (
-              <span style={{ fontSize: "12px", color: "#ff3b3b", alignSelf: "center" }}>GEE Disconnected</span>
-            )
+        {lakeId === "bellandur" && (activeLayer === "live_2026" || activeLayer === "live_2026_rgb") && (
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: "4px",
+            padding: "2px 8px", borderRadius: "10px", fontSize: "10px", fontWeight: 700,
+            background: "rgba(0,217,163,0.15)", border: "1px solid rgba(0,217,163,0.4)",
+            color: "#00d9a3", flexShrink: 0,
+          }}>
+            <span style={{
+              width: "6px", height: "6px", borderRadius: "50%", background: "#00d9a3",
+              boxShadow: "0 0 6px #00d9a3", animation: "pulse-ring 1.4s ease-out infinite",
+              display: "inline-block",
+            }} />
+            LIVE · 2026
+          </span>
+        )}
+      </div>
+
+      {/* ── Row 2: Buttons — single scrollable row, story order ── */}
+      {lakeId === "bellandur" && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "5px",
+          marginBottom: "14px", overflowX: "auto", paddingBottom: "2px",
+        }}>
+          {loadingGee ? (
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Connecting to GEE...</span>
+          ) : geeTiles ? (
+            <>
+              {/* Pollution index layers — chronological story */}
+              {[
+                { key: "baseline",  label: "✅ 2016 Baseline" },
+                { key: "warning",   label: "⚠️ 2017 Warning"  },
+                { key: "critical",  label: "🔥 2018 Fire"     },
+                { key: "live_2026", label: "🟢 Live 2026",  live: true },
+              ].map(btn => {
+                const isActive = activeLayer === btn.key;
+                return (
+                  <button key={btn.key} className="predict-btn" onClick={() => setActiveLayer(btn.key)}
+                    style={{
+                      padding: "4px 11px", fontSize: "11px", marginTop: 0,
+                      flexShrink: 0, whiteSpace: "nowrap",
+                      opacity: isActive ? 1 : 0.5,
+                      ...(isActive && btn.live ? {
+                        border: "1px solid rgba(0,217,163,0.6)",
+                        background: "rgba(0,217,163,0.08)",
+                        color: "#00d9a3", fontWeight: 700,
+                      } : {}),
+                    }}
+                  >{btn.label}</button>
+                );
+              })}
+
+              {/* Visual separator */}
+              <div style={{ width: "1px", height: "20px", background: "rgba(255,255,255,0.15)", flexShrink: 0, margin: "0 3px" }} />
+
+              {/* RGB / overlay views */}
+              {[
+                { key: "critical_rgb",  label: "📷 RGB 2018" },
+                { key: "live_2026_rgb", label: "📷 RGB 2026" },
+                { key: "static",        label: "🗺️ Zones"    },
+              ].map(btn => (
+                <button key={btn.key} className="predict-btn" onClick={() => setActiveLayer(btn.key)}
+                  style={{
+                    padding: "4px 11px", fontSize: "11px", marginTop: 0,
+                    flexShrink: 0, whiteSpace: "nowrap",
+                    opacity: activeLayer === btn.key ? 1 : 0.5,
+                  }}
+                >{btn.label}</button>
+              ))}
+            </>
+          ) : (
+            <span style={{ fontSize: "12px", color: "#ff3b3b" }}>GEE Disconnected — showing static zones</span>
           )}
         </div>
-      </div>
+      )}
 
       <MapContainer
         key={lakeId}
