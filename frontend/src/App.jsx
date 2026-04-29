@@ -11,6 +11,7 @@ import ModelConsensus from "./components/ModelConsensus";
 import EconomicImpact from "./components/EconomicImpact";
 import ScenarioSimulator from "./components/ScenarioSimulator";
 import LakeSelector from "./components/LakeSelector";
+import LiveReading from "./components/LiveReading";
 
 const API = "http://localhost:8000";
 
@@ -327,11 +328,21 @@ export default function App() {
 
           {isBellandur && (
             <div className="fade-in-delay-4" style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr",
+              gap: "20px", marginTop: "20px"
+            }}>
+              <LiveReading />
+              <FestivalMarkers festivals={festivals} />
+            </div>
+          )}
+
+          {isBellandur && (
+            <div className="fade-in-delay-4" style={{
               display: "grid", gridTemplateColumns: "1fr 1.5fr",
               gap: "20px", marginTop: "20px"
             }}>
               <PredictPanel />
-              <FestivalMarkers festivals={festivals} />
+              <div /> {/* spacer */}
             </div>
           )}
         </>
