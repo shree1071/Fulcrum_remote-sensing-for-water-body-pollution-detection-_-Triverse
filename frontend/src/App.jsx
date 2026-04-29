@@ -289,7 +289,6 @@ export default function App() {
           {aiAnalysis && (
             <div className="fade-in-delay-2 glass-card" style={{ padding: "20px", marginTop: "20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
-                <span style={{ fontSize: "18px" }}>🤖</span>
                 <div className="section-title" style={{ margin: 0 }}>AI INTELLIGENCE ANALYSIS</div>
                 <div style={{
                   marginLeft: "auto", fontSize: "10px", fontWeight: 600,
