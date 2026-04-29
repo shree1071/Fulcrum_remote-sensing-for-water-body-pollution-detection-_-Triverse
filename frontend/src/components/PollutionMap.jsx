@@ -36,7 +36,7 @@ const ZONES = [
 
 export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinates = { lat: 12.937, lon: 77.668 }, lakeName = "Bellandur Lake" }) {
   const [geeTiles, setGeeTiles] = useState(null);
-  const [activeLayer, setActiveLayer] = useState("critical"); // 'baseline', 'warning', 'critical', 'critical_rgb', 'static'
+  const [activeLayer, setActiveLayer] = useState("live_2026"); // default to live 2026
   const [loadingGee, setLoadingGee] = useState(true);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
       .then(data => {
         if (data.status === "success") {
           setGeeTiles(data);
-          setActiveLayer("critical"); // Default to critical when loaded
+          setActiveLayer("live_2026"); // Always default to live 2026
         } else {
           setActiveLayer("static");
         }
@@ -62,7 +62,7 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
     if (lakeId !== "bellandur") {
       setActiveLayer("static");
     } else if (geeTiles) {
-      setActiveLayer("critical");
+      setActiveLayer("live_2026");
     }
   }, [lakeId, geeTiles]);
 
@@ -73,42 +73,73 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
     return geeTiles[activeLayer];
   };
 
+  // RGB layers don't need a dark base underneath
+  const isRgbLayer = activeLayer === "critical_rgb" || activeLayer === "live_2026_rgb";
+
   return (
     <div className="glass-card" style={{ padding: "20px" }}>
       <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-        <span>🗺️ Live Pollution Map — {lakeName}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          🗺️ Live Pollution Map — {lakeName}
+          {lakeId === "bellandur" && activeLayer === "live_2026" && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: "4px",
+              padding: "2px 8px", borderRadius: "10px", fontSize: "10px", fontWeight: 700,
+              background: "rgba(0,217,163,0.15)", border: "1px solid rgba(0,217,163,0.4)",
+              color: "#00d9a3",
+            }}>
+              <span style={{
+                width: "6px", height: "6px", borderRadius: "50%", background: "#00d9a3",
+                boxShadow: "0 0 6px #00d9a3", animation: "pulse-ring 1.4s ease-out infinite",
+                display: "inline-block",
+              }} />
+              LIVE · 2026
+            </span>
+          )}
+        </span>
         
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
           {lakeId === "bellandur" && (
             loadingGee ? (
               <span style={{ fontSize: "12px", color: "var(--text-muted)", alignSelf: "center" }}>Connecting to GEE...</span>
             ) : geeTiles ? (
               <>
-              <button 
-                className="predict-btn" 
-                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "baseline" ? 1 : 0.5, marginTop: 0 }}
-                onClick={() => setActiveLayer("baseline")}
-              >✅ Baseline (Oct 2016)</button>
-              <button 
-                className="predict-btn" 
-                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "warning" ? 1 : 0.5, marginTop: 0 }}
-                onClick={() => setActiveLayer("warning")}
-              >⚠️ Warning (Apr 2017)</button>
+              <button
+                className="predict-btn"
+                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "live_2026" ? 1 : 0.5, marginTop: 0,
+                  ...(activeLayer === "live_2026" ? { border: "1px solid rgba(0,217,163,0.6)", color: "#00d9a3" } : {}) }}
+                onClick={() => setActiveLayer("live_2026")}
+              >🟢 Live (Apr 2026)</button>
+              <button
+                className="predict-btn"
+                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "live_2026_rgb" ? 1 : 0.5, marginTop: 0 }}
+                onClick={() => setActiveLayer("live_2026_rgb")}
+              >📷 RGB (2026)</button>
               <button 
                 className="predict-btn" 
                 style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "critical" ? 1 : 0.5, marginTop: 0 }}
                 onClick={() => setActiveLayer("critical")}
-              >🔴 Critical (Feb 2018)</button>
+              >🔴 2018 Fire</button>
+              <button 
+                className="predict-btn" 
+                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "baseline" ? 1 : 0.5, marginTop: 0 }}
+                onClick={() => setActiveLayer("baseline")}
+              >✅ 2016 Baseline</button>
+              <button 
+                className="predict-btn" 
+                style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "warning" ? 1 : 0.5, marginTop: 0 }}
+                onClick={() => setActiveLayer("warning")}
+              >⚠️ 2017</button>
               <button 
                 className="predict-btn" 
                 style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "critical_rgb" ? 1 : 0.5, marginTop: 0 }}
                 onClick={() => setActiveLayer("critical_rgb")}
-              >📷 RGB (Feb 2018)</button>
+              >📷 RGB 2018</button>
                 <button 
                   className="predict-btn" 
                   style={{ padding: "4px 10px", fontSize: "11px", opacity: activeLayer === "static" ? 1 : 0.5, marginTop: 0 }}
                   onClick={() => setActiveLayer("static")}
-                >🗺️ Static Zones</button>
+                >🗺️ Zones</button>
               </>
             ) : (
               <span style={{ fontSize: "12px", color: "#ff3b3b", alignSelf: "center" }}>GEE Disconnected</span>
@@ -125,7 +156,7 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
         zoomControl={true}
       >
         {/* If using GEE, we still want a dark base map underneath the transparent overlays */}
-        {activeLayer !== "critical_rgb" && activeLayer !== "static" && (
+        {!isRgbLayer && activeLayer !== "static" && (
             <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 attribution='&copy; <a href="https://carto.com/">CARTO</a>'
@@ -139,7 +170,7 @@ export default function PollutionMap({ hotspots, lakeId = "bellandur", coordinat
           url={getCurrentTileUrl()}
           attribution={activeLayer === "static" ? '&copy; <a href="https://carto.com/">CARTO</a>' : '&copy; Google Earth Engine'}
           maxZoom={19}
-          opacity={activeLayer === "critical_rgb" ? 1 : (activeLayer === "static" ? 1 : 0.85)}
+          opacity={isRgbLayer ? 1 : (activeLayer === "static" ? 1 : 0.85)}
         />
 
         {/* Pollution classification zones (Static Mode Only - Bellandur specific) */}

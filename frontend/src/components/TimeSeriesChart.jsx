@@ -51,7 +51,7 @@ export default function TimeSeriesChart({ data, festivals, thresholds }) {
   return (
     <div className="glass-card" style={{ padding: "20px" }}>
       <div className="section-title">
-        📈 Pollution Timeline 2017–2024
+        📈 Pollution Timeline 2017–2026
       </div>
 
       <ResponsiveContainer width="100%" height={340}>
